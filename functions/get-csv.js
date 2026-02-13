@@ -13,6 +13,7 @@ exports.handler = async (event) => {
   try {
     const { rows } = await pool.query(`
       SELECT
+        id,
         group_name      AS "group",
         seat_num        AS "seatNum",
         streamer_label  AS "streamerLabel",
