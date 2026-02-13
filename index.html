@@ -226,7 +226,7 @@
             border-radius: 4px;
             background: var(--input-bg);
             color: var(--text-main);
-            cursor: pointer;
+            cursor: text;
         }
         
         .link-item input:focus {
@@ -390,7 +390,7 @@
             z-index: 2;
         }
 
-        /* Action Buttons (QR) */
+        /* Action Buttons (QR + Edit) */
         .action-btn {
             position: absolute;
             top: 0.5rem;
@@ -409,11 +409,12 @@
         }
         
         .qr-action { right: 0.5rem; }
+        .edit-action { left: 0.5rem; }
 
         .csv-button:hover .action-btn { opacity: 1; }
         .action-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
 
-        /* Modal for QR & PIN */
+        /* Modal for QR & PIN & EDIT */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -571,7 +572,7 @@
 
                 <div class="links-section">
                     <h3>3. Shareable Links</h3>
-                    <p class="upload-info">Click any link below to copy it to your clipboard.</p>
+                    <p class="upload-info">Click <b>Copy</b> to copy, or edit the URL in the box (saved in this browser).</p>
                     <div id="links-container" class="links-grid">
                         <!-- Links generated via JS -->
                     </div>
@@ -654,6 +655,27 @@
         </div>
     </div>
 
+    <!-- EDIT SEAT MODAL -->
+    <div id="edit-modal" class="modal-overlay">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeEditModal()">×</button>
+            <h3 id="edit-modal-title" style="margin-bottom:0.25rem;">Edit Links</h3>
+            <p id="edit-modal-subtitle" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;"></p>
+
+            <label style="display:block; text-align:left; font-size:0.85rem; margin-bottom:0.25rem;">Streamer / Guest Link</label>
+            <input id="edit-guest-link" type="text" style="width:100%; padding:0.5rem; margin-bottom:0.75rem; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--text-main);" />
+
+            <label style="display:block; text-align:left; font-size:0.85rem; margin-bottom:0.25rem;">Director Link</label>
+            <input id="edit-director-link" type="text" style="width:100%; padding:0.5rem; margin-bottom:0.75rem; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--text-main);" />
+
+            <label style="display:block; text-align:left; font-size:0.85rem; margin-bottom:0.25rem;">View / Browser Source Link (optional)</label>
+            <input id="edit-view-link" type="text" style="width:100%; padding:0.5rem; margin-bottom:1rem; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--text-main);" />
+
+            <button class="nav-btn active" style="width:100%; margin-bottom:0.5rem;" onclick="saveSeatEdits()">Save</button>
+            <button class="nav-btn" style="width:100%;" onclick="closeEditModal()">Cancel</button>
+        </div>
+    </div>
+
 <script>
     // ---------------------------------------------------------
     // STATE MANAGEMENT
@@ -665,60 +687,61 @@
         maxUploads: 4,
         isCompactMode: false,
         isAuthenticated: false,
-        pin: '1234' // Default PIN
+        pin: '1234', // Default PIN
+        buttonCount: 2 // Default number of seat buttons on language page
     };
 
     let currentQRLink = "";
     let pendingTab = "";
+    let editingSeatItem = null;
+
+    const LINK_OVERRIDE_PREFIX = 'csvApp_linkOverride_';
 
     // ---------------------------------------------------------
     // INITIALIZATION
     // ---------------------------------------------------------
-   window.onload = async function() {
-    // Load Settings from LocalStorage (still OK for PIN & theme)
-    const savedPin = localStorage.getItem('csvApp_pin');
-    if (savedPin) state.pin = savedPin;
+    window.onload = async function() {
+        const savedPin = localStorage.getItem('csvApp_pin');
+        if (savedPin) state.pin = savedPin;
 
-    loadTheme();
+        loadTheme();
+        loadButtonCountFromUrl(); // read ?buttons= from URL
 
-    // Try to load from Neon via Netlify function
-    await loadDataFromServerOrDefaults();
+        await loadDataFromServerOrDefaults();
 
-    window.addEventListener('hashchange', handleHashNavigation);
-    handleHashNavigation();
-};
+        window.addEventListener('hashchange', handleHashNavigation);
+        handleHashNavigation();
+    };
 
-async function loadDataFromServerOrDefaults() {
-    try {
-        const res = await fetch('/.netlify/functions/get-csv');
-        if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-                console.log('Loaded data from server:', data.length);
-                processCSV1Data(data);
-                const statusEl = document.getElementById('status-csv1');
-                if (statusEl) {
-                    statusEl.textContent = `Loaded ${data.length} items from server.`;
+    async function loadDataFromServerOrDefaults() {
+        try {
+            const res = await fetch('/.netlify/functions/get-csv');
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    console.log('Loaded data from server:', data.length);
+                    processCSV1Data(data);
+                    const statusEl = document.getElementById('status-csv1');
+                    if (statusEl) {
+                        statusEl.textContent = `Loaded ${data.length} items from server.`;
+                    }
+                    return;
                 }
-                return;
             }
+            console.log('No server data, using preloaded master data.');
+            const defaults = getPreloadedData();
+            processCSV1Data(defaults);
+        } catch (err) {
+            console.error('Failed to load from server; using defaults', err);
+            const defaults = getPreloadedData();
+            processCSV1Data(defaults);
         }
-        // If no data on server, fall back to defaults
-        console.log('No server data, using preloaded master data.');
-        const defaults = getPreloadedData();
-        processCSV1Data(defaults);
-    } catch (err) {
-        console.error('Failed to load from server; using defaults', err);
-        const defaults = getPreloadedData();
-        processCSV1Data(defaults);
     }
-}
 
     // ---------------------------------------------------------
     // PRELOADED DATA (From CSV)
     // ---------------------------------------------------------
     function getPreloadedData() {
-        // Data extracted directly from the provided CSV file
         const rawData = [
             // ENGLISH
             {group:"ENGLISH", seat:1, room:"English_Streamer_1", view:"2gRDpv9m2A"},
@@ -772,6 +795,7 @@ async function loadDataFromServerOrDefaults() {
         ];
 
         return rawData.map(item => ({
+            id: null, // no DB id when using preloaded
             group: item.group,
             seatNum: item.seat,
             streamerLabel: `SEAT ${item.seat}`,
@@ -808,6 +832,28 @@ async function loadDataFromServerOrDefaults() {
     }
 
     // ---------------------------------------------------------
+    // URL PARAMETERS (SEAT BUTTON COUNT)
+    // ---------------------------------------------------------
+    function loadButtonCountFromUrl() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const raw =
+                params.get('buttons') ||
+                params.get('btn') ||
+                params.get('seats');
+
+            let count = parseInt(raw, 10);
+            if (isNaN(count) || count <= 0) {
+                count = 2; // default
+            }
+            state.buttonCount = count;
+            console.log('Button count set to', count);
+        } catch (e) {
+            state.buttonCount = 2;
+        }
+    }
+
+    // ---------------------------------------------------------
     // COMPACT MODE
     // ---------------------------------------------------------
     function toggleCompactMode() {
@@ -817,7 +863,7 @@ async function loadDataFromServerOrDefaults() {
         
         if (state.isCompactMode) {
             grid.classList.add('list-view');
-            grid.classList.remove('director-grid'); // Remove grid columns constraint
+            grid.classList.remove('director-grid');
             btn.textContent = '🔳 Grid View';
         } else {
             grid.classList.remove('list-view');
@@ -874,8 +920,6 @@ async function loadDataFromServerOrDefaults() {
 
     function closePinModal() {
         document.getElementById('pin-modal').style.display = 'none';
-        
-        // Safety Fallback:
         if (pendingTab === 'admin' && !state.isAuthenticated) {
             switchMainTab('csv1', false);
         }
@@ -898,8 +942,6 @@ async function loadDataFromServerOrDefaults() {
             const index = state.groupedPages.findIndex(page => page[0] && page[0].group === langName);
             if (index !== -1) switchLanguagePage(index, false);
         } else {
-            // DEFAULT BEHAVIOR: Load Admin Page (Home)
-            // This will trigger checkPin() since Admin is protected.
             switchMainTab('admin', false);
         }
     }
@@ -927,7 +969,7 @@ async function loadDataFromServerOrDefaults() {
         state.currentLangPageIndex = 0;
 
         renderAdminView();
-        renderDirectorView(); // Initial render
+        renderDirectorView();
         renderLanguageNav();
         renderLanguagePage();
         generateLinks();
@@ -938,11 +980,10 @@ async function loadDataFromServerOrDefaults() {
     // ---------------------------------------------------------
     function filterDirectorGrid(query) {
         const container = document.getElementById('grid-director');
-        container.innerHTML = ''; // Clear current
+        container.innerHTML = '';
 
         const lowerQuery = query.toLowerCase();
         
-        // Filter data
         const filtered = state.csv1.filter(item => {
             const label = (item.directorLabel || '').toLowerCase();
             const group = (item.group || '').toLowerCase();
@@ -959,39 +1000,107 @@ async function loadDataFromServerOrDefaults() {
     }
 
     // ---------------------------------------------------------
+    // EDIT SEAT MODAL LOGIC
+    // ---------------------------------------------------------
+    function openEditModal(item) {
+        editingSeatItem = item;
+        const titleEl = document.getElementById('edit-modal-title');
+        const subEl = document.getElementById('edit-modal-subtitle');
+        titleEl.textContent = `${item.group} (${item.seatNum})`;
+        subEl.textContent = 'Update the links for this seat. Changes apply to Director view and Language pages.';
+
+        document.getElementById('edit-guest-link').value = item.guestLink || '';
+        document.getElementById('edit-director-link').value = item.directorLink || '';
+        document.getElementById('edit-view-link').value = item.viewLink || '';
+
+        document.getElementById('edit-modal').style.display = 'flex';
+    }
+
+    function closeEditModal() {
+        editingSeatItem = null;
+        document.getElementById('edit-modal').style.display = 'none';
+    }
+
+    async function saveSeatEdits() {
+        if (!editingSeatItem) {
+            closeEditModal();
+            return;
+        }
+
+        const guestLink = document.getElementById('edit-guest-link').value.trim();
+        const directorLink = document.getElementById('edit-director-link').value.trim();
+        const viewLink = document.getElementById('edit-view-link').value.trim();
+
+        editingSeatItem.guestLink = guestLink;
+        editingSeatItem.directorLink = directorLink;
+        editingSeatItem.viewLink = viewLink;
+
+        renderAdminView();
+        renderDirectorView();
+        renderLanguagePage();
+
+        if (editingSeatItem.id) {
+            try {
+                const resp = await fetch('/.netlify/functions/update-seat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: editingSeatItem.id,
+                        guestLink,
+                        directorLink,
+                        viewLink
+                    })
+                });
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(text || ('HTTP ' + resp.status));
+                }
+                const result = await resp.json();
+                console.log('Seat update result:', result);
+                showToast('Links updated.', 'success');
+            } catch (err) {
+                console.error('Failed to update seat:', err);
+                showToast('Saved locally, but server update failed.', 'error');
+            }
+        } else {
+            showToast('Links updated for this session.', 'success');
+        }
+
+        closeEditModal();
+    }
+
+    // ---------------------------------------------------------
     // RENDERING
     // ---------------------------------------------------------
-    
     function renderAdminView() {
         const container = document.getElementById('grid-admin');
         container.innerHTML = '';
-        state.csv1.forEach(item => container.appendChild(createDirectorButton(item)));
+        state.csv1.forEach(item => container.appendChild(createDirectorButton(item, { allowEdit: true })));
     }
 
     function renderDirectorView() {
-        // Just call the filter with empty string to render all
         filterDirectorGrid("");
     }
 
-    function createDirectorButton(item) {
+    function createDirectorButton(item, options = {}) {
+        const allowEdit = options.allowEdit === true;
+
         const btn = document.createElement('div');
         btn.className = 'csv-button admin-btn';
         
         const label = item.directorLabel || `${item.group} (${item.seatNum})`;
         const link = item.directorLink;
         
-        // Main Click Action
         btn.onclick = (e) => {
-            if(e.target.closest('.action-btn')) return; // Ignore if clicking icons
+            if(e.target.closest('.action-btn')) return;
             if (link) {
                 window.open(link, '_blank');
-                btn.classList.add('visited'); // DIMMING FEATURE
+                btn.classList.add('visited');
             } else {
                 showToast('No Director Link found', 'error');
             }
         };
         
-        // QR Code Icon
         const qrIcon = document.createElement('div');
         qrIcon.className = 'action-btn qr-action';
         qrIcon.innerHTML = '📱';
@@ -1006,6 +1115,19 @@ async function loadDataFromServerOrDefaults() {
             <small>Director Access</small>
         `;
         btn.appendChild(qrIcon);
+
+        if (allowEdit) {
+            const editIcon = document.createElement('div');
+            editIcon.className = 'action-btn edit-action';
+            editIcon.innerHTML = '✏️';
+            editIcon.title = 'Edit Links';
+            editIcon.onclick = (e) => {
+                e.stopPropagation();
+                openEditModal(item);
+            };
+            btn.appendChild(editIcon);
+        }
+
         return btn;
     }
 
@@ -1034,7 +1156,10 @@ async function loadDataFromServerOrDefaults() {
             return;
         }
 
-        pageData.forEach(item => {
+        const limit = Math.max(1, state.buttonCount || 2);
+        const itemsToShow = pageData.slice(0, limit);
+
+        itemsToShow.forEach(item => {
             const btn = document.createElement('div');
             btn.className = 'csv-button streamer-btn';
             
@@ -1045,13 +1170,12 @@ async function loadDataFromServerOrDefaults() {
                 if(e.target.closest('.action-btn')) return;
                 if (link) {
                     window.open(link, '_blank');
-                    btn.classList.add('visited'); // DIMMING FEATURE
+                    btn.classList.add('visited');
                 } else {
                     showToast("No Guest Link found", 'error');
                 }
             };
             
-            // QR Code Icon
             const qrIcon = document.createElement('div');
             qrIcon.className = 'action-btn qr-action';
             qrIcon.innerHTML = '📱';
@@ -1074,38 +1198,82 @@ async function loadDataFromServerOrDefaults() {
         });
     }
 
+    // ---------------------------------------------------------
+    // SHAREABLE LINKS (with local overrides)
+    // ---------------------------------------------------------
+    function getLinkOverride(key) {
+        try {
+            return localStorage.getItem(LINK_OVERRIDE_PREFIX + key) || null;
+        } catch {
+            return null;
+        }
+    }
+
+    function setLinkOverride(key, url) {
+        try {
+            if (!url) {
+                localStorage.removeItem(LINK_OVERRIDE_PREFIX + key);
+            } else {
+                localStorage.setItem(LINK_OVERRIDE_PREFIX + key, url);
+            }
+        } catch {}
+    }
+
     function generateLinks() {
         const container = document.getElementById('links-container');
         container.innerHTML = '';
         const baseUrl = window.location.href.split('#')[0];
+
         const links = [
-            { name: "1. Admin Dashboard", hash: "#admin" },
-            { name: "2. Director View", hash: "#director" }
+            { key: 'admin',    name: "1. Admin Dashboard", defaultUrl: baseUrl + '#admin' },
+            { key: 'director', name: "2. Director View",  defaultUrl: baseUrl + '#director' }
         ];
 
         state.groupedPages.forEach((page, i) => {
             if(page[0]) {
-                links.push({ name: `${3+i}. ${page[0].group} Page`, hash: `#lang=${encodeURIComponent(page[0].group)}` });
+                const group = page[0].group;
+                links.push({
+                    key: `lang:${group}`,
+                    name: `${3+i}. ${group} Page`,
+                    defaultUrl: baseUrl + `#lang=${encodeURIComponent(group)}`
+                });
             }
         });
 
         links.forEach(link => {
+            const override = getLinkOverride(link.key);
+            const finalUrl = override || link.defaultUrl;
+
             const div = document.createElement('div');
             div.className = 'link-item';
-            const fullUrl = baseUrl + link.hash;
             div.innerHTML = `
                 <div class="flex" style="justify-content:space-between">
                     <strong>${link.name}</strong>
-                    <span style="font-size:0.75rem; color:var(--primary); cursor:pointer">📋 Copy</span>
+                    <span class="copy-link" style="font-size:0.75rem; color:var(--primary); cursor:pointer">📋 Copy</span>
                 </div>
-                <input type="text" readonly value="${fullUrl}" />
+                <input type="text" class="share-link-input" data-key="${link.key}" value="${finalUrl}" />
+                <small style="font-size:0.7rem; color:var(--text-muted);">You can edit this URL. Changes are saved in this browser.</small>
             `;
-            div.onclick = () => {
-                const input = div.querySelector('input');
+
+            const input = div.querySelector('input');
+            const copySpan = div.querySelector('.copy-link');
+
+            copySpan.onclick = () => {
                 input.select();
                 document.execCommand('copy');
                 showToast("Link copied to clipboard!", "success");
             };
+
+            input.addEventListener('change', () => {
+                const newUrl = input.value.trim();
+                if (!newUrl || newUrl === link.defaultUrl) {
+                    setLinkOverride(link.key, '');
+                } else {
+                    setLinkOverride(link.key, newUrl);
+                }
+                showToast("Link updated.", "success");
+            });
+
             container.appendChild(div);
         });
     }
@@ -1133,7 +1301,6 @@ async function loadDataFromServerOrDefaults() {
         currentQRLink = link;
         document.getElementById('qr-modal').style.display = 'flex';
         document.getElementById('qr-title').textContent = label;
-        // Use a reliable QR code API
         document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
     }
 
@@ -1145,10 +1312,9 @@ async function loadDataFromServerOrDefaults() {
     // NAVIGATION
     // ---------------------------------------------------------
     function switchMainTab(tabId, updateHash = true) {
-        // PIN PROTECTION logic for Admin and Director
         if (tabId === 'admin' || tabId === 'director') {
             if (!state.isAuthenticated) {
-                checkPin(tabId); // This will call performSwitch if successful
+                checkPin(tabId);
                 return;
             }
         }
@@ -1165,7 +1331,6 @@ async function loadDataFromServerOrDefaults() {
         if(tabId === 'director') navBtns[1].classList.add('active');
         if(tabId === 'csv1') navBtns[2].classList.add('active');
 
-        // AUTO-HIDE NAVBAR ON LANGUAGE PAGES
         const navbar = document.getElementById('main-nav');
         if (tabId === 'csv1') {
             navbar.style.display = 'none';
@@ -1196,57 +1361,51 @@ async function loadDataFromServerOrDefaults() {
     // CSV PARSING (For Local Overrides)
     // ---------------------------------------------------------
     function handleFileUpload(input) {
-    const file = input.files[0];
-    if (!file) return;
+        const file = input.files[0];
+        if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        const csvText = e.target.result;
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const csvText = e.target.result;
 
-        // Parse in browser for immediate use
-        const parsed = parseCSV(csvText);
-        processCSV1Data(parsed);
+            const parsed = parseCSV(csvText);
+            processCSV1Data(parsed);
 
-        // Update status text
-        const statusEl = document.getElementById('status-csv1');
-        if (statusEl) {
-            statusEl.textContent = `Loaded user file (${parsed.length} items). Uploading to server...`;
-        }
-
-        // OPTIONAL: remove old localStorage saving, since we now store online
-        // try { localStorage.setItem('csvApp_csv1', JSON.stringify(parsed)); } catch(e) {}
-
-        // Send parsed data to Netlify function -> Neon DB
-        try {
-            const resp = await fetch('/.netlify/functions/upload-csv', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: parsed })
-            });
-
-            if (!resp.ok) {
-                const text = await resp.text();
-                throw new Error(text || ('HTTP ' + resp.status));
-            }
-
-            const result = await resp.json();
-            console.log('Server save result:', result);
-
+            const statusEl = document.getElementById('status-csv1');
             if (statusEl) {
-                statusEl.textContent = `Uploaded to server (${parsed.length} items).`;
+                statusEl.textContent = `Loaded user file (${parsed.length} items). Uploading to server...`;
             }
-            showToast(`Uploaded ${parsed.length} items to server.`, 'success');
-        } catch (err) {
-            console.error('Upload to server failed:', err);
-            if (statusEl) {
-                statusEl.textContent = `Loaded user file (${parsed.length} items). Server upload failed.`;
-            }
-            showToast('Saved for this session, but upload to server failed.', 'error');
-        }
-    };
 
-    reader.readAsText(file);
-}
+            try {
+                const resp = await fetch('/.netlify/functions/upload-csv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: parsed })
+                });
+
+                if (!resp.ok) {
+                    const text = await resp.text();
+                    throw new Error(text || ('HTTP ' + resp.status));
+                }
+
+                const result = await resp.json();
+                console.log('Server save result:', result);
+
+                if (statusEl) {
+                    statusEl.textContent = `Uploaded to server (${parsed.length} items).`;
+                }
+                showToast(`Uploaded ${parsed.length} items to server.`, 'success');
+            } catch (err) {
+                console.error('Upload to server failed:', err);
+                if (statusEl) {
+                    statusEl.textContent = `Loaded user file (${parsed.length} items). Server upload failed.`;
+                }
+                showToast('Saved for this session, but upload to server failed.', 'error');
+            }
+        };
+
+        reader.readAsText(file);
+    }
 
     function parseCSV(csvText) {
         const lines = csvText.trim().split('\n');
@@ -1259,15 +1418,8 @@ async function loadDataFromServerOrDefaults() {
             if (!line) continue;
             const parts = line.split(',');
             
-            // Col 0: Group
-            // Col 1: Browser Source Link (Used for View)
-            // Col 2: Streamer Label
-            // Col 4: Guest Link
-            // Col 5: Director Link
-            // Col 6: Director Label
-            
             const col0 = parts[0] ? parts[0].trim() : '';
-            const viewLink = parts[1] ? parts[1].trim() : ''; // NEW: View Link
+            const viewLink = parts[1] ? parts[1].trim() : '';
             const streamerLabel = parts[2] ? parts[2].trim() : '';
             const guestLink = parts[4] ? parts[4].trim() : '';
             const directorLink = parts[5] ? parts[5].trim() : '';
@@ -1291,12 +1443,13 @@ async function loadDataFromServerOrDefaults() {
             }
 
             result.push({
+                id: null,
                 group: currentGroup,
                 seatNum: seatCounter,
                 streamerLabel: streamerLabel, 
                 directorLabel: directorLabel, 
                 urlLabel: urlLabel,
-                viewLink: viewLink, // Store it
+                viewLink: viewLink,
                 guestLink: guestLink,
                 directorLink: directorLink
             });
