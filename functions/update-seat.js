@@ -6,7 +6,7 @@ const pool = new Pool({
 });
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST' && event.httpMethod !== 'PUT') {
+  if (event.httpMethod !== ' POST' && event.httpMethod !== 'PUT') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
@@ -20,7 +20,7 @@ exports.handler = async (event) => {
     };
   }
 
-  const { id, guestLink, directorLink, viewLink } = payload;
+  const { id, guestLink, directorLink, viewLink, directorLabel, streamerLabel } = payload;
 
   if (!id) {
     return {
@@ -34,12 +34,21 @@ exports.handler = async (event) => {
       `
         UPDATE csv_items
         SET
-          guest_link   = $2,
-          director_link= $3,
-          view_link    = $4
+          guest_link      = $2,
+          director_link   = $3,
+          view_link       = $4,
+          director_label  = $5,
+          streamer_label  = $6
         WHERE id = $1
       `,
-      [id, guestLink || null, directorLink || null, viewLink || null]
+      [
+        id,
+        guestLink || null,
+        directorLink || null,
+        viewLink || null,
+        directorLabel || null,
+        streamerLabel || null
+      ]
     );
 
     if (!rowCount) {
