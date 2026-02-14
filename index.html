@@ -457,7 +457,7 @@
             border: 1px solid var(--border);
             padding: 1rem;
             border-radius: 8px;
-            background: white; /* QR needs white bg to be scannable */
+            background: white;
         }
         
         /* PIN Input */
@@ -659,8 +659,15 @@
     <div id="edit-modal" class="modal-overlay">
         <div class="modal-content" onclick="event.stopPropagation()">
             <button class="modal-close" onclick="closeEditModal()">×</button>
-            <h3 id="edit-modal-title" style="margin-bottom:0.25rem;">Edit Links</h3>
+            <h3 id="edit-modal-title" style="margin-bottom:0.25rem;">Edit Seat</h3>
             <p id="edit-modal-subtitle" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;"></p>
+
+            <!-- NEW: label fields -->
+            <label style="display:block; text-align:left; font-size:0.85rem; margin-bottom:0.25rem;">Director Button Label</label>
+            <input id="edit-director-label" type="text" style="width:100%; padding:0.5rem; margin-bottom:0.75rem; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--text-main);" />
+
+            <label style="display:block; text-align:left; font-size:0.85rem; margin-bottom:0.25rem;">Language / Streamer Button Label</label>
+            <input id="edit-streamer-label" type="text" style="width:100%; padding:0.5rem; margin-bottom:1rem; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--text-main);" />
 
             <label style="display:block; text-align:left; font-size:0.85rem; margin-bottom:0.25rem;">Streamer / Guest Link</label>
             <input id="edit-guest-link" type="text" style="width:100%; padding:0.5rem; margin-bottom:0.75rem; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--text-main);" />
@@ -705,7 +712,7 @@
         if (savedPin) state.pin = savedPin;
 
         loadTheme();
-        loadButtonCountFromUrl(); // read ?buttons= from URL
+        loadButtonCountFromUrl();
 
         await loadDataFromServerOrDefaults();
 
@@ -795,7 +802,7 @@
         ];
 
         return rawData.map(item => ({
-            id: null, // no DB id when using preloaded
+            id: null,
             group: item.group,
             seatNum: item.seat,
             streamerLabel: `SEAT ${item.seat}`,
@@ -844,7 +851,7 @@
 
             let count = parseInt(raw, 10);
             if (isNaN(count) || count <= 0) {
-                count = 2; // default
+                count = 2;
             }
             state.buttonCount = count;
             console.log('Button count set to', count);
@@ -1007,8 +1014,10 @@
         const titleEl = document.getElementById('edit-modal-title');
         const subEl = document.getElementById('edit-modal-subtitle');
         titleEl.textContent = `${item.group} (${item.seatNum})`;
-        subEl.textContent = 'Update the links for this seat. Changes apply to Director view and Language pages.';
+        subEl.textContent = 'Update the labels and links for this seat. Changes apply to Director view and Language pages.';
 
+        document.getElementById('edit-director-label').value = item.directorLabel || `${item.group} (${item.seatNum})`;
+        document.getElementById('edit-streamer-label').value = item.streamerLabel || `SEAT ${item.seatNum}`;
         document.getElementById('edit-guest-link').value = item.guestLink || '';
         document.getElementById('edit-director-link').value = item.directorLink || '';
         document.getElementById('edit-view-link').value = item.viewLink || '';
@@ -1027,10 +1036,14 @@
             return;
         }
 
+        const directorLabel = document.getElementById('edit-director-label').value.trim();
+        const streamerLabel = document.getElementById('edit-streamer-label').value.trim();
         const guestLink = document.getElementById('edit-guest-link').value.trim();
         const directorLink = document.getElementById('edit-director-link').value.trim();
         const viewLink = document.getElementById('edit-view-link').value.trim();
 
+        editingSeatItem.directorLabel = directorLabel || `${editingSeatItem.group} (${editingSeatItem.seatNum})`;
+        editingSeatItem.streamerLabel = streamerLabel || `SEAT ${editingSeatItem.seatNum}`;
         editingSeatItem.guestLink = guestLink;
         editingSeatItem.directorLink = directorLink;
         editingSeatItem.viewLink = viewLink;
@@ -1048,7 +1061,9 @@
                         id: editingSeatItem.id,
                         guestLink,
                         directorLink,
-                        viewLink
+                        viewLink,
+                        directorLabel: editingSeatItem.directorLabel,
+                        streamerLabel: editingSeatItem.streamerLabel
                     })
                 });
                 if (!resp.ok) {
@@ -1057,13 +1072,13 @@
                 }
                 const result = await resp.json();
                 console.log('Seat update result:', result);
-                showToast('Links updated.', 'success');
+                showToast('Seat updated.', 'success');
             } catch (err) {
                 console.error('Failed to update seat:', err);
                 showToast('Saved locally, but server update failed.', 'error');
             }
         } else {
-            showToast('Links updated for this session.', 'success');
+            showToast('Seat updated for this session.', 'success');
         }
 
         closeEditModal();
@@ -1120,7 +1135,7 @@
             const editIcon = document.createElement('div');
             editIcon.className = 'action-btn edit-action';
             editIcon.innerHTML = '✏️';
-            editIcon.title = 'Edit Links';
+            editIcon.title = 'Edit Seat';
             editIcon.onclick = (e) => {
                 e.stopPropagation();
                 openEditModal(item);
