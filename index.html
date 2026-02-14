@@ -573,17 +573,13 @@
                 <div class="links-section">
                     <h3>3. Shareable Links</h3>
                     <p class="upload-info">Click <b>Copy</b> to copy, or edit the URL in the box (saved in this browser).</p>
-                    <div id="links-container" class="links-grid">
-                        <!-- Links generated via JS -->
-                    </div>
+                    <div id="links-container" class="links-grid"></div>
                 </div>
 
                 <div class="view-header" style="margin-top:3rem; border-top: 1px solid var(--border); padding-top:2rem;">
                     <h2>Director Preview (6 Columns)</h2>
                 </div>
-                <div id="grid-admin" class="grid-display director-grid">
-                    <!-- Buttons injected here -->
-                </div>
+                <div id="grid-admin" class="grid-display director-grid"></div>
             </div>
         </div>
 
@@ -596,35 +592,24 @@
                 </div>
                 
                 <div class="controls-row">
-                    <!-- List View Toggle -->
                     <button class="nav-btn" id="view-toggle" onclick="toggleCompactMode()" title="Toggle List View">
                         📜 List View
                     </button>
-                    <!-- SEARCH BAR -->
                     <div class="search-container">
                         <span class="search-icon">🔍</span>
                         <input type="text" class="search-input" placeholder="Search seats..." oninput="filterDirectorGrid(this.value)">
                     </div>
                 </div>
             </div>
-            <div id="grid-director" class="grid-display director-grid">
-                <!-- Content mirrors Admin Grid -->
-            </div>
+            <div id="grid-director" class="grid-display director-grid"></div>
         </div>
 
         <!-- LANGUAGE VIEW (Clean View - Navbar Hidden) -->
         <div id="tab-csv1" class="view-section">
-            <!-- No Title/Header here, clean interface -->
-            <div id="lang-nav" class="sub-nav">
-                <!-- Generated dynamically -->
-            </div>
-            
-            <div id="grid-csv1" class="grid-display" style="margin-top: 1rem;">
-                <!-- Streamer Buttons injected here -->
-            </div>
+            <div id="lang-nav" class="sub-nav"></div>
+            <div id="grid-csv1" class="grid-display" style="margin-top: 1rem;"></div>
         </div>
 
-        <!-- CSV 2 VIEW (Hidden) -->
         <div id="tab-csv2" class="view-section"></div>
 
     </div>
@@ -662,7 +647,6 @@
             <h3 id="edit-modal-title" style="margin-bottom:0.25rem;">Edit Seat</h3>
             <p id="edit-modal-subtitle" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1rem;"></p>
 
-            <!-- NEW: label fields -->
             <label style="display:block; text-align:left; font-size:0.85rem; margin-bottom:0.25rem;">Director Button Label</label>
             <input id="edit-director-label" type="text" style="width:100%; padding:0.5rem; margin-bottom:0.75rem; border:1px solid var(--border); border-radius:6px; background:var(--input-bg); color:var(--text-main);" />
 
@@ -685,17 +669,17 @@
 
 <script>
     // ---------------------------------------------------------
-    // STATE MANAGEMENT
+    // STATE
     // ---------------------------------------------------------
     const state = {
-        csv1: [], 
-        groupedPages: [], 
+        csv1: [],
+        groupedPages: [],
         currentLangPageIndex: 0,
         maxUploads: 4,
         isCompactMode: false,
         isAuthenticated: false,
-        pin: '1234', // Default PIN
-        buttonCount: 2 // Default number of seat buttons on language page
+        pin: '1234',
+        buttonCount: 2
     };
 
     let currentQRLink = "";
@@ -705,7 +689,7 @@
     const LINK_OVERRIDE_PREFIX = 'csvApp_linkOverride_';
 
     // ---------------------------------------------------------
-    // INITIALIZATION
+    // INIT
     // ---------------------------------------------------------
     window.onload = async function() {
         const savedPin = localStorage.getItem('csvApp_pin');
@@ -729,70 +713,59 @@
                     console.log('Loaded data from server:', data.length);
                     processCSV1Data(data);
                     const statusEl = document.getElementById('status-csv1');
-                    if (statusEl) {
-                        statusEl.textContent = `Loaded ${data.length} items from server.`;
-                    }
+                    if (statusEl) statusEl.textContent = `Loaded ${data.length} items from server.`;
                     return;
                 }
             }
             console.log('No server data, using preloaded master data.');
-            const defaults = getPreloadedData();
-            processCSV1Data(defaults);
+            processCSV1Data(getPreloadedData());
         } catch (err) {
             console.error('Failed to load from server; using defaults', err);
-            const defaults = getPreloadedData();
-            processCSV1Data(defaults);
+            processCSV1Data(getPreloadedData());
         }
     }
 
     // ---------------------------------------------------------
-    // PRELOADED DATA (From CSV)
+    // PRELOADED DATA
     // ---------------------------------------------------------
     function getPreloadedData() {
         const rawData = [
-            // ENGLISH
             {group:"ENGLISH", seat:1, room:"English_Streamer_1", view:"2gRDpv9m2A"},
             {group:"ENGLISH", seat:2, room:"English_Streamer_2", view:"M21x4rnm3b"},
             {group:"ENGLISH", seat:3, room:"English_Streamer_3", view:"afCPqlHfVW"},
             {group:"ENGLISH", seat:4, room:"English_Streamer_4", view:"J1HHXmMYwx"},
             {group:"ENGLISH", seat:5, room:"English_Streamer_5", view:"03lFQoaoTn"},
             {group:"ENGLISH", seat:6, room:"English_Streamer_6", view:"R1hS0eWc60"},
-            // MANDARIN
             {group:"MANDARIN", seat:1, room:"Madarin_Streamer_1", view:"UZLioT9sWf"},
             {group:"MANDARIN", seat:2, room:"Mandarin_Streamer_2", view:"LsPS30fiN2"},
             {group:"MANDARIN", seat:3, room:"Mandarin_Streamer_3", view:"bHhhsh27yf"},
             {group:"MANDARIN", seat:4, room:"Mandarin_Streamer_4", view:"BtgHnd95hW"},
             {group:"MANDARIN", seat:5, room:"Mandarin_Streamer_5", view:"Z0fq5X4qKM"},
             {group:"MANDARIN", seat:6, room:"Mandarin_Streamer_6", view:"rJc1HXbFNh"},
-            // CANTONESE
             {group:"CANTONESE", seat:1, room:"Cantonese_Streamer_1", view:"jcfB30tgsA"},
             {group:"CANTONESE", seat:2, room:"Cantonese_Streamer_2", view:"1tm5Ck59Qy"},
             {group:"CANTONESE", seat:3, room:"Cantonese_Streamer_3", view:"IjBAgwewIh"},
             {group:"CANTONESE", seat:4, room:"Cantonese_Streamer_4", view:"P8Cb7HWxTr"},
             {group:"CANTONESE", seat:5, room:"Cantonese_Streamer_5", view:"ggwdwnLBI5"},
             {group:"CANTONESE", seat:6, room:"Cantonese_Streamer_6", view:"zzizAZqzkU"},
-            // JAPANESE
             {group:"JAPANESE", seat:1, room:"Japanese_Streamer_1", view:"qP0XeDEU6L"},
             {group:"JAPANESE", seat:2, room:"Japanese_Streamer_2", view:"PD59AHp1AW"},
             {group:"JAPANESE", seat:3, room:"Japanese_Streamer_3", view:"b1Qnjaw0Sz"},
             {group:"JAPANESE", seat:4, room:"Japanese_Streamer_4", view:"oTA9ZXdnNA"},
             {group:"JAPANESE", seat:5, room:"Japanese_Streamer_5", view:"k4d6qIC9wc"},
             {group:"JAPANESE", seat:6, room:"Japanese_Streamer_6", view:"rLz9UBdz5A"},
-            // THAI
             {group:"THAI", seat:1, room:"Thai_Streamer_1", view:"V1UYa4e8sR"},
             {group:"THAI", seat:2, room:"Thai_Streamer_2", view:"tmCJQ4OD65"},
             {group:"THAI", seat:3, room:"Thai_Streamer_3", view:"QmbZWcl9pn"},
             {group:"THAI", seat:4, room:"Thai_Streamer_4", view:"gY2F9bGKC2"},
             {group:"THAI", seat:5, room:"Thai_Streamer_5", view:"J7ii8O9Gp5"},
             {group:"THAI", seat:6, room:"Thai_Streamer_6", view:"cQ3KSBPhA8"},
-            // VIETNAMESE
             {group:"VIETNAMESE", seat:1, room:"Vietnamese_Streamer_1", view:"Dz6keze6pO"},
             {group:"VIETNAMESE", seat:2, room:"Vietnamese_Streamer_2", view:"dhAFBk5aFp"},
             {group:"VIETNAMESE", seat:3, room:"Vietnamese_Streamer_3", view:"hpNFDdLqzR"},
             {group:"VIETNAMESE", seat:4, room:"Vietnamese_Streamer_4", view:"ySP2kMVz8q"},
             {group:"VIETNAMESE", seat:5, room:"Vietnamese_Streamer_5", view:"O5x0OXi5gV"},
             {group:"VIETNAMESE", seat:6, room:"Vietnamese_Streamer_6", view:"QhlJX1VXgJ"},
-            // KOREAN
             {group:"KOREAN", seat:1, room:"Korean_Streamer_1", view:"XKVZRt5pNw"},
             {group:"KOREAN", seat:2, room:"Korean_Streamer_2", view:"qwUnFkYxaG"},
             {group:"KOREAN", seat:3, room:"Korean_Streamer_3", view:"Q8m6y0i5zS"},
@@ -815,7 +788,7 @@
     }
 
     // ---------------------------------------------------------
-    // THEME MANAGEMENT
+    // THEME
     // ---------------------------------------------------------
     function toggleTheme() {
         const html = document.documentElement;
@@ -839,7 +812,7 @@
     }
 
     // ---------------------------------------------------------
-    // URL PARAMETERS (SEAT BUTTON COUNT)
+    // URL PARAMS (buttons)
     // ---------------------------------------------------------
     function loadButtonCountFromUrl() {
         try {
@@ -850,12 +823,9 @@
                 params.get('seats');
 
             let count = parseInt(raw, 10);
-            if (isNaN(count) || count <= 0) {
-                count = 2;
-            }
+            if (isNaN(count) || count <= 0) count = 2;
             state.buttonCount = count;
-            console.log('Button count set to', count);
-        } catch (e) {
+        } catch {
             state.buttonCount = 2;
         }
     }
@@ -880,7 +850,7 @@
     }
 
     // ---------------------------------------------------------
-    // PIN PROTECTION & CHANGE
+    // PIN
     // ---------------------------------------------------------
     function checkPin(tabId) {
         if (state.isAuthenticated) {
@@ -907,7 +877,6 @@
             } else {
                 errorEl.textContent = 'Incorrect PIN';
                 input.value = '';
-                input.classList.add('shake');
             }
         }
     }
@@ -934,11 +903,10 @@
     }
 
     // ---------------------------------------------------------
-    // ROUTING / DEEP LINKING
+    // ROUTING
     // ---------------------------------------------------------
     function handleHashNavigation() {
         const hash = window.location.hash;
-        
         if (hash === '#admin') {
             switchMainTab('admin', false);
         } else if (hash === '#director') {
@@ -983,14 +951,13 @@
     }
 
     // ---------------------------------------------------------
-    // SEARCH FUNCTIONALITY
+    // SEARCH (Director View)
     // ---------------------------------------------------------
     function filterDirectorGrid(query) {
         const container = document.getElementById('grid-director');
         container.innerHTML = '';
 
         const lowerQuery = query.toLowerCase();
-        
         const filtered = state.csv1.filter(item => {
             const label = (item.directorLabel || '').toLowerCase();
             const group = (item.group || '').toLowerCase();
@@ -998,23 +965,23 @@
             return label.includes(lowerQuery) || group.includes(lowerQuery) || seat.includes(lowerQuery);
         });
 
-        if(filtered.length === 0) {
+        if (filtered.length === 0) {
             container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:2rem; color:var(--text-muted)">No seats found matching your search.</div>';
             return;
         }
 
-        filtered.forEach(item => container.appendChild(createDirectorButton(item)));
+        // Director view should also have edit buttons
+        filtered.forEach(item => container.appendChild(createDirectorButton(item, { allowEdit: true })));
     }
 
     // ---------------------------------------------------------
-    // EDIT SEAT MODAL LOGIC
+    // EDIT SEAT MODAL
     // ---------------------------------------------------------
     function openEditModal(item) {
         editingSeatItem = item;
-        const titleEl = document.getElementById('edit-modal-title');
-        const subEl = document.getElementById('edit-modal-subtitle');
-        titleEl.textContent = `${item.group} (${item.seatNum})`;
-        subEl.textContent = 'Update the labels and links for this seat. Changes apply to Director view and Language pages.';
+        document.getElementById('edit-modal-title').textContent = `${item.group} (${item.seatNum})`;
+        document.getElementById('edit-modal-subtitle').textContent =
+            'Update the labels and links for this seat. Changes apply to Director view and Language pages.';
 
         document.getElementById('edit-director-label').value = item.directorLabel || `${item.group} (${item.seatNum})`;
         document.getElementById('edit-streamer-label').value = item.streamerLabel || `SEAT ${item.seatNum}`;
@@ -1070,8 +1037,6 @@
                     const text = await resp.text();
                     throw new Error(text || ('HTTP ' + resp.status));
                 }
-                const result = await resp.json();
-                console.log('Seat update result:', result);
                 showToast('Seat updated.', 'success');
             } catch (err) {
                 console.error('Failed to update seat:', err);
@@ -1204,6 +1169,20 @@
                 <div class="label-text">${mainLabel}</div>
             `;
             btn.appendChild(qrIcon);
+
+            // Show edit icon on language page only if admin has unlocked PIN
+            if (state.isAuthenticated) {
+                const editIcon = document.createElement('div');
+                editIcon.className = 'action-btn edit-action';
+                editIcon.innerHTML = '✏️';
+                editIcon.title = 'Edit Seat';
+                editIcon.onclick = (e) => {
+                    e.stopPropagation();
+                    openEditModal(item);
+                };
+                btn.appendChild(editIcon);
+            }
+
             container.appendChild(btn);
         });
         
@@ -1214,7 +1193,7 @@
     }
 
     // ---------------------------------------------------------
-    // SHAREABLE LINKS (with local overrides)
+    // SHAREABLE LINKS (local only)
     // ---------------------------------------------------------
     function getLinkOverride(key) {
         try {
@@ -1294,7 +1273,7 @@
     }
 
     // ---------------------------------------------------------
-    // UTILITIES (Toasts & Modals)
+    // UTILITIES
     // ---------------------------------------------------------
     function showToast(msg, type='normal') {
         const container = document.getElementById('toast-container');
@@ -1316,7 +1295,8 @@
         currentQRLink = link;
         document.getElementById('qr-modal').style.display = 'flex';
         document.getElementById('qr-title').textContent = label;
-        document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
+        document.getElementById('qr-image').src =
+            `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
     }
 
     function closeQRModal() {
@@ -1347,18 +1327,15 @@
         if(tabId === 'csv1') navBtns[2].classList.add('active');
 
         const navbar = document.getElementById('main-nav');
-        if (tabId === 'csv1') {
-            navbar.style.display = 'none';
-        } else {
-            navbar.style.display = 'flex';
-        }
+        navbar.style.display = (tabId === 'csv1') ? 'none' : 'flex';
 
         if (updateHash) {
             if (tabId === 'admin') window.location.hash = 'admin';
             if (tabId === 'director') window.location.hash = 'director';
             if (tabId === 'csv1') {
                 const currentPage = state.groupedPages[state.currentLangPageIndex];
-                if (currentPage && currentPage[0]) window.location.hash = `lang=${encodeURIComponent(currentPage[0].group)}`;
+                if (currentPage && currentPage[0])
+                    window.location.hash = `lang=${encodeURIComponent(currentPage[0].group)}`;
             }
         }
     }
@@ -1368,12 +1345,13 @@
         renderLanguagePage();
         if (updateHash) {
             const pageData = state.groupedPages[index];
-            if (pageData && pageData[0]) window.location.hash = `lang=${encodeURIComponent(pageData[0].group)}`;
+            if (pageData && pageData[0])
+                window.location.hash = `lang=${encodeURIComponent(pageData[0].group)}`;
         }
     }
 
     // ---------------------------------------------------------
-    // CSV PARSING (For Local Overrides)
+    // CSV UPLOAD & PARSE
     // ---------------------------------------------------------
     function handleFileUpload(input) {
         const file = input.files[0];
@@ -1382,7 +1360,6 @@
         const reader = new FileReader();
         reader.onload = async function(e) {
             const csvText = e.target.result;
-
             const parsed = parseCSV(csvText);
             processCSV1Data(parsed);
 
@@ -1402,9 +1379,6 @@
                     const text = await resp.text();
                     throw new Error(text || ('HTTP ' + resp.status));
                 }
-
-                const result = await resp.json();
-                console.log('Server save result:', result);
 
                 if (statusEl) {
                     statusEl.textContent = `Uploaded to server (${parsed.length} items).`;
